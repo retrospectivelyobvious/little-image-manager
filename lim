@@ -1,7 +1,29 @@
 #!/usr/bin/env python
 
-import subprocess
+#Little Image Manager
+#Copyright (C) 2012 Robert (Bob) M. Sherbert
+#
+#This program is free software: you can redistribute it and/or modify
+#it under the terms of the GNU General Public License as published by
+#the Free Software Foundation, either version 3 of the License, or
+#(at your option) any later version.
+#
+#This program is distributed in the hope that it will be useful,
+#but WITHOUT ANY WARRANTY; without even the implied warranty of
+#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#GNU General Public License for more details.
+#
+#You should have received a copy of the GNU General Public License
+#along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+#If by some strange twist you believe that this software would have value for a
+#commercial project but are unwilling to be bound by the strictures of the GPL,
+#you may contact the author with inquiries for alternative licence terms.
+
 import sys
+sys.path.append('/usr/lib/lim')
+
+import subprocess
 import getopt
 import shutil
 import re
@@ -240,6 +262,12 @@ class ArchivePartition(Partition):
                   'type':self.parttype,  'filesystem':self.fs}
         return (self.number, config, self.exchangeFile)
 
+def usage():
+    print("Little Image Manager (LIM)")
+    print("Usage:")
+    print("-d, -a <file> : Specify source device (-d) or source archive (-a)")
+    print("-D, -A <file> : Specify destination device (-D) or destination archive (-A)")
+
 #'main' class, governs program operation
 def main(argv):
     try:
@@ -252,26 +280,26 @@ def main(argv):
     except getopt.GetoptError:
         print "Invalid Options: " 
         print "Usage!!"
-        sys.exit(1)
+        return 1
 
     src = None
     dst = None
     for opt,arg in opts:
         if   opt in ('-d', '--src-device'):
             if(src):
-                raise "may not have more than one source"
+                raise "May not have more than one source."
             src = BlockDevice(arg, src=True) 
         elif opt in ('-D', '--dst-device'):
             if(dst):
-                raise "may not have more than one dest"
+                raise "May not have more than one destination."
             dst = BlockDevice(arg) 
         elif opt in ('-a', '--src-archive'):
             if(src):
-                raise "may not have more than one source"
+                raise "May not have more than one source."
             src = Archive(arg, src=True) 
         elif opt in ('-A', '--dst-archive'): 
             if(dst):
-                raise "may not have more than one dest"
+                raise "May not have more than one destination."
             dst = Archive(arg) 
         #elif opt in ('-c', '--config'): 
         #    self.config = Config(arg) 
@@ -280,11 +308,11 @@ def main(argv):
     if src and dst:
         return convertImage(src, dst)
     else:
-        return 1
+        usage()
+        return 2
 
 if __name__ == "__main__":
-    import code
-    #bd = BlockDevice('/dev/sdf')
     r = main(sys.argv)
-    code.interact(local=locals())
+    #import code
+    #code.interact(local=locals())
     sys.exit(r)
