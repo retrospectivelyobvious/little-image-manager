@@ -6,7 +6,9 @@ install:
 	sudo mkdir -p /usr/lib/lim
 	sudo cp support.py /usr/lib/lim/
 	sudo chmod 755 /usr/lib/lim/support.py
+	sudo cp hardware.py /usr/lib/lim/
+	sudo chmod 755 /usr/lib/lim/hardware.py
 
 remove:
-	-sudo rm /usr/bin/lim
-	-sudo rm -rf /usr/lib/lim
+	sudo rm -f /usr/bin/lim
+	sudo rm -rf /usr/lib/lim

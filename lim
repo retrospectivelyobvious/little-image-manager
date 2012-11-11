@@ -33,6 +33,9 @@ import tempfile
 import parted
 
 import support
+import hardware as hw
+
+LIM_VERSION = 0.1
 
 def convertImage(fromLoc, toLoc):
 #    print fromLoc.getMeta()
@@ -41,7 +44,15 @@ def convertImage(fromLoc, toLoc):
 #    for part in fromLoc.getPartitions():
 #        print part.get()
 #    return 0
-    toLoc.putMeta(fromLoc.getMeta())
+    meta = fromLoc.getMeta()
+    try:
+        if meta['lim_ver'] != LIM_VERSION:
+            print "The source was not created with this version of LIM."
+            print "It is not safe to continue - bailing."
+            return 3
+    except:
+        return 3
+    toLoc.putMeta(meta)
     toLoc.putDisk(fromLoc.getDisk())
     toLoc.putMBR(fromLoc.getMBR())
 
@@ -92,9 +103,13 @@ class BlockDevice(Image):
         meta = {}
         meta['name'] = raw_input('Name: ')
         meta['description'] = raw_input('Description: ')
-        meta['version'] = raw_input('Version: ')
+        meta['img_ver'] = raw_input('Version: ')
         meta['url'] = raw_input('URL: ')
         meta['compression'] = 'gzip'
+        meta['lim_ver'] = LIM_VERSION
+        print "Identify the hardware version:"
+        print hw.hw.selections('')
+        meta['hw_ver'] = raw_input('HW ID Number: ')
         return meta
 
     def getDisk(self):
