@@ -1,4 +1,4 @@
-.PHONY : install remove
+.PHONY : install remove uninstall
 
 install: 
 	sudo cp lim /usr/bin/
@@ -12,3 +12,7 @@ install:
 remove:
 	sudo rm -f /usr/bin/lim
 	sudo rm -rf /usr/lib/lim
+
+uninstall:
+	sudo rm -f /usr/local/bin/lim
+	sudo rm -rf /usr/local/lib/python2.7/dist-packages/littleimage
