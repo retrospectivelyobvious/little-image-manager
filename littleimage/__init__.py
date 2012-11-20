@@ -43,7 +43,7 @@ def convertImage(fromLoc, toLoc):
 #    return 0
     meta = fromLoc.getMeta()
     try:
-        if meta['lim_ver'] != LIM_VERSION:
+        if meta['format_ver'] != LIM_VERSION:
             print "The source was not created with this version of LIM."
             print "It is not safe to continue - bailing."
             return 3
@@ -100,10 +100,10 @@ class BlockDevice(Image):
         meta = {}
         meta['name'] = raw_input('Name: ')
         meta['description'] = raw_input('Description: ')
-        meta['img_ver'] = raw_input('Version: ')
         meta['url'] = raw_input('URL: ')
         meta['compression'] = 'gzip'
-        meta['lim_ver'] = LIM_VERSION
+        meta['img_ver'] = raw_input('Image Version: ')
+        meta['format_ver'] = LIM_VERSION
         print "Identify the hardware version:"
         print hw.hw.selections('')
         meta['hw_ver'] = raw_input('HW ID Number: ')
@@ -197,7 +197,19 @@ class Archive(Image):
         self.addToConfig('meta', metainfo)
 
     def getMeta(self):
-        return self.extractFromConfig('meta')
+        try:
+            meta = self.extractFromConfig('meta')
+            #Test for preseence of all required fields
+            m = meta['name']
+            m = compression=meta['compression']
+            m = meta['url']
+            m = description=meta['description']
+            m = img_ver=meta['img_ver']
+            m = meta['format_ver']
+            m = meta['hw_ver']
+            return meta
+        except KeyError as k:
+            raise errors.BadArchive(self.ar, member=str(k.args[0]))
 
     def putDisk(self, diskinfo):
         self.addToConfig('disk', diskinfo)

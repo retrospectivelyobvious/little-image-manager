@@ -19,6 +19,7 @@
 #you may contact the author with inquiries for alternative licence terms.
 
 import subprocess
+import errors
 
 def dd(count, skip=0, seek=0, infile='/dev/zero', outfile='/dev/null', bs=512):
     return ddPopen(count, skip, seek, infile, outfile, bs, False)
@@ -69,12 +70,17 @@ def ddPopen(count, skip=0, seek=0, infile='/dev/zero', outfile='/dev/null', bs=5
             raise "Hell"
         return True
 
-def ar(archive, member, p, mod, stdin=None, stdout=None, process=False):
+def ar(archive, member, p, mod, stdin=None, stdout=None, stderr=None, process=False):
     call = ['ar', str(p) + str(mod), str(archive), str(member)]
     if(process):
-        return subprocess.Popen(call, stdin=stdin, stdout=stdout)
+        return subprocess.Popen(call, stdin=stdin, stdout=stdout, stderr=stderr)
     else:
-        return subprocess.call(call, stdin=stdin, stdout=stdout)
+        r = subprocess.call(call, stdin=stdin, stdout=stdout, stderr=stderr)
+        if r != 0:
+            # 1 == ar return code for 'unrecognized format'
+            # 9 == ar return code for 'no such file'
+            raise errors.BadArchive(archive)
+        return r
 
 def arAdd(archive, member):
     return ar(archive, member, p='r', mod='D')
@@ -87,6 +93,8 @@ def arStream(archive, member):
 def arGet(archive, member, getDir):
     name = getDir + '/' + str(member)
     efd = open(name, 'wb')
-    ar(archive, member, p='p', mod='D', stdout=efd)
+    nfd = open('/dev/null', 'wb')
+    ar(archive, member, p='p', mod='D', stdout=efd, stderr=nfd)
     efd.close()
+    nfd.close()
     return name
