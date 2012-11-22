@@ -6,13 +6,13 @@ admin.autodiscover()
 
 urlpatterns = patterns('',
     # Examples:
-    # url(r'^$', 'djtest.views.home', name='home'),
-    # url(r'^djtest/', include('djtest.foo.urls')),
+    # url(r'^$', 'limserver.views.home', name='home'),
+    # url(r'^limserver/', include('limserver.foo.urls')),
 
     # Uncomment the admin/doc line below to enable admin documentation:
      url(r'^admin/doc/', include('django.contrib.admindocs.urls')),
 
     # Uncomment the next line to enable the admin:
      url(r'^admin/', include(admin.site.urls)),
-     url(r'^display/', 'limsrv.views.index'),
+     url(r'^lim.xml', 'limsrv.views.index'),
 )

@@ -27,7 +27,8 @@ class Command(BaseCommand):
                           url=meta['url'], description=meta['description'], \
                           format_ver=meta['format_ver'], hw_ver=meta['hw_ver'])
                 i.save()
+                print "Found Image: " + str(i)
             except lim.errors.BadArchive as ba:
                 self.stdout.write("Invalid Archive: " + str(ba) + "\n")
-        self.stdout.write("ABORT!\n")
+        self.stdout.write("Done.\n")
 

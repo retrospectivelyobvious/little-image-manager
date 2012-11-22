@@ -24,6 +24,9 @@ import subprocess
 import getopt
 import shutil
 import re
+import urllib
+import os
+import xml.dom.minidom as minidom 
 
 import ConfigParser
 import tempfile
@@ -43,8 +46,10 @@ def convertImage(fromLoc, toLoc):
 #    return 0
     meta = fromLoc.getMeta()
     try:
-        if meta['format_ver'] != LIM_VERSION:
-            print "The source was not created with this version of LIM."
+        if float(meta['format_ver']) != float(LIM_VERSION):
+            print "The source (" + str(meta['format_ver']) + ") " \
+                  + "was not created with this version of LIM (" + \
+                  str(LIM_VERSION) + ")."
             print "It is not safe to continue - bailing."
             return 3
     except:
@@ -59,7 +64,7 @@ def convertImage(fromLoc, toLoc):
 
     toLoc.finalize()
 
-class Image():
+class Image(object):
     def __init__(self):
         pass
     def tidy(self):
@@ -69,7 +74,7 @@ class Image():
     def putDisk(self, disk):
         pass
 
-class Partition():
+class Partition(object):
     def __init__(self):
         pass
 #    def tidy():
@@ -123,7 +128,7 @@ class BlockDevice(Image):
     def getMBR(self):
         self.exchangeMBR = self.exchangeDir + "/MBR"
         support.dd(count=1, infile=self.dev.path, \
-                   outfile=self.exchangeMBR)    
+                   outfile=self.exchangeMBR)
         return self.exchangeMBR
 
     def getPartitions(self):
@@ -209,7 +214,7 @@ class Archive(Image):
             m = meta['hw_ver']
             return meta
         except KeyError as k:
-            raise errors.BadArchive(self.ar, member=str(k.args[0]))
+            raise errors.BadArchive(self.ar, meta=str(k.args[0]))
 
     def putDisk(self, diskinfo):
         self.addToConfig('disk', diskinfo)
@@ -286,23 +291,80 @@ class ArchivePartition(Partition):
                   'type':self.parttype,  'filesystem':self.fs}
         return (self.number, config, self.exchangeFile)
 
+class URL(Archive):
+    def __init__(self, url):
+        tempdir = tempfile.mkdtemp()
+        f = os.path.basename(tempdir)
+        (fname, header) = urllib.urlretrieve(url, tempdir + "/" + f)
+        try:
+            super(URL, self).__init__(fname, src=True)
+        except:
+            raise
+
+    def __del__(self):
+        pass
+
+class RepoImage(object):
+    def __init__(self, name, desc, filehash, url, compression, format_ver, \
+                 img_ver, hw_ver, loc):
+        self.name = name
+        self.desc = desc
+        self.filehash = filehash
+        self.url = url
+        self.compression = compression
+        self.format_ver = format_ver
+        self.img_ver = img_ver
+        self.hw_ver = hw_ver
+        self.loc = loc
+    def __str__(self):
+        s = "(" + str(self.hw_ver) + ") " + self.name + " - " + self.desc 
+        return s
+
+class Repo(URL):
+    def __init__(self, repoURL):
+        repoxml = urllib.urlopen(repoURL)
+        repodom = minidom.parse(repoxml)
+        imgs = repodom.getElementsByTagName("image")
+        imglist = []
+        for img in imgs:
+            rimage = RepoImage( \
+                name = img.getElementsByTagName("name")[0].childNodes[0].data, \
+                desc = img.getElementsByTagName("description")[0].childNodes[0].data, \
+                filehash = img.getElementsByTagName("filehash")[0].childNodes[0].data, \
+                url = img.getElementsByTagName("url")[0].childNodes[0].data, \
+                img_ver = img.getElementsByTagName("img_ver")[0].childNodes[0].data, \
+                hw_ver = img.getElementsByTagName("hw_ver")[0].childNodes[0].data, \
+                compression = img.getAttribute("compression"), \
+                format_ver = img.getAttribute("format_ver"), \
+                loc = img.getAttribute("location"))
+            print str(len(imglist)) + ") " + str(rimage)
+            imglist.append(rimage)
+        try:
+            index = raw_input('Pick an Image: ')
+            super(Repo, self).__init__( imglist[int(index)].loc )
+        except:
+            raise
+
 def usage():
     print("Little Image Manager (LIM)")
     print("Usage:")
     print("-d, -a <file> : Specify source device (-d) or source archive (-a)")
+    print("-u <URL> : Specify a source URL at which an archive is located")
     print("-D, -A <file> : Specify destination device (-D) or destination archive (-A)")
 
 #'main' class, governs program operation
 def main(argv):
     try:
-        opts, leftover = getopt.getopt(argv[1: ], 'd:a:D:A:', 
+        opts, leftover = getopt.getopt(argv[1: ], 'd:a:u:r:D:A:',
                                                           ['src-device=',
                                                            'src-archive=',
+                                                           'src-url=',
+                                                           'src-repo=',
                                                            'dst-device=',
                                                            'dst-archive=',
                                                            'config='])
     except getopt.GetoptError:
-        print "Invalid Options: " 
+        print "Invalid Options: "
         print "Usage!!"
         return 1
 
@@ -312,21 +374,29 @@ def main(argv):
         if   opt in ('-d', '--src-device'):
             if(src):
                 raise "May not have more than one source."
-            src = BlockDevice(arg, src=True) 
+            src = BlockDevice(arg, src=True)
         elif opt in ('-D', '--dst-device'):
             if(dst):
                 raise "May not have more than one destination."
-            dst = BlockDevice(arg) 
+            dst = BlockDevice(arg)
         elif opt in ('-a', '--src-archive'):
             if(src):
                 raise "May not have more than one source."
-            src = Archive(arg, src=True) 
-        elif opt in ('-A', '--dst-archive'): 
+            src = Archive(arg, src=True)
+        elif opt in ('-u', '--src-url'):
+            if(src):
+                raise "May not have more than one source."
+            src = URL(arg)
+        elif opt in ('-r', '--src-repo'):
+            if(src):
+                raise "May not have more than one source."
+            src = Repo(arg)
+        elif opt in ('-A', '--dst-archive'):
             if(dst):
                 raise "May not have more than one destination."
-            dst = Archive(arg) 
-        #elif opt in ('-c', '--config'): 
-        #    self.config = Config(arg) 
+            dst = Archive(arg)
+        #elif opt in ('-c', '--config'):
+        #    self.config = Config(arg)
         else:
             pass
     if src and dst:
