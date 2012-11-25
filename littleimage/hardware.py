@@ -24,6 +24,8 @@
 mappings between hardware/revisions and their identifying numeric constants
 """
 
+LIM_VERSION = 0.1
+
 class limage:
     def __init__(self, shortname, fullName, idnum):
         self.shortname = shortname

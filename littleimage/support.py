@@ -67,7 +67,7 @@ def ddPopen(count, skip=0, seek=0, infile='/dev/zero', outfile='/dev/null', bs=5
         r = subprocess.call(call, stdin=infd, stdout=outfd)
         #shell truth (0=success) is inverted from normal (1=True) 
         if(r):
-            raise "Hell"
+            raise errors.SubprocessError('dd', r)
         return True
 
 def ar(archive, member, p, mod, stdin=None, stdout=None, stderr=None, process=False):
@@ -98,3 +98,67 @@ def arGet(archive, member, getDir):
     efd.close()
     nfd.close()
     return name
+
+def tar(tarfile='/dev/null', target='/dev/zero', options='czf', cwd=None):
+    call = ['tar', options, tarfile, target]
+    p = subprocess.Popen(call, cwd=cwd)
+    r = p.wait()
+    if(r):
+        raise errors.SubprocessError('tar', r)
+    return True
+
+def mount(device, dest):
+    call = ['mount', device, dest]
+    r = subprocess.call(call)
+    if(r):
+        raise errors.SubprocessError('mount', r)
+    else:
+        return True
+
+def umount(mountpoint):
+    call = ['umount', mountpoint]
+    r = subprocess.call(call)
+    if(r):
+        raise errors.SubprocessError('umount', r)
+    else:
+        return True
+
+def rm(target, options=''):
+    call = ['rm', options, target]
+    r = subprocess.call(call)
+    if(r):
+        raise errors.SubprocessError('rm', r)
+    else:
+        return True
+
+def partprobe(device=''):
+    call = ['partprobe', device]
+    r = subprocess.call(call)
+    if(r):
+        raise errors.SubprocessError('partprobe', r)
+    else:
+        return True
+
+def mkfs(device, fstype):
+    opts = []
+    if fstype == 'ext2':
+        fsprog = 'mkfs.ext2'
+    elif fstype == 'ext3':
+        fsprog = 'mkfs.ext3'
+    elif fstype == 'ext4':
+        fsprog = 'mkfs.ext4'
+    elif fstype == 'fat16':
+        fsprog == 'mkfs.vfat'
+        opts = ['F16']
+    elif fstype == 'fat32':
+        fsprog == 'mkfs.vfat'
+        opts = ['F32']
+
+    call = [fsprog]
+    call.extend(opts)
+    call.append(device)
+    r = subprocess.call(call)
+    if(r):
+        raise errors.SubprocessError(fsprog, r)
+    else:
+        return True
