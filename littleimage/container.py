@@ -89,20 +89,20 @@ class BlockDevice(Container):
         #Template code @ https://bitbucket.org/rbistolfi/vinstall/wiki/pyparted
         disk = parted.freshDisk(self.dev, "msdos")
         for par in partlist:
-            print (par.start, par.end)
-            #TODO: should check that the geometry is within the disk
-            g = parted.Geometry(device=self.dev, start=par.start, end=par.end)
-            fs = parted.FileSystem(type=par.fstype, geometry=g)
+            if par.parttype != 'artificial':
+                #TODO: should check that the geometry is within the disk
+                g = parted.Geometry(device=self.dev, start=par.start, end=par.end)
+                fs = parted.FileSystem(type=par.fstype, geometry=g)
 
-            #TODO: eventually we should be able to handle logical/extended
-            #partitions - right now it's primary only
-            ptype = parted.PARTITION_NORMAL
-            if par.parttype != 'primary':
-                raise errors.partError(par.parttype)
-                
-            p = parted.Partition(disk=disk, fs=fs, type=ptype, geometry=g)
-            c = parted.Constraint(exactGeom = g)
-            disk.addPartition(partition=p, constraint=c)
+                #TODO: eventually we should be able to handle logical/extended
+                #partitions - right now it's primary only
+                ptype = parted.PARTITION_NORMAL
+                if par.parttype != 'primary':
+                    raise errors.partError(par.parttype)
+
+                p = parted.Partition(disk=disk, fs=fs, type=ptype, geometry=g)
+                c = parted.Constraint(exactGeom = g)
+                disk.addPartition(partition=p, constraint=c)
         disk.commit()
 
         #refresh the OS's view of the disk
@@ -110,18 +110,30 @@ class BlockDevice(Container):
 
         #put file systems onto the new partitions
         for par in partlist:
-            support.mkfs(par.composeNode(self.node), par.fstype)
-        #for par in partlist:
-            
+            if par.parttype != 'artificial':
+                support.mkfs(par.composeNode(self.node), par.fstype)
 
-    def putMBR(self, mbrloc):
-        support.dd(count=1, infile=mbrloc, outfile=self.node, bs=512)
+    def putMBR(self, mbrloc, codeonly=False):
+        #if we've rewritten the partition table, we only want to copy in the
+        #bootstrap code from the original MBR, which is on bytes [0, 444]
+        if codeonly:
+            support.dd(count=1, infile=mbrloc, outfile=self.node, bs=445)
+        else:
+            support.dd(count=1, infile=mbrloc, outfile=self.node, bs=512)
 
     def getMBR(self):
         self.exchangeMBR = self.exchangeDir + "/MBR"
         support.dd(count=1, infile=self.dev.path, \
                    outfile=self.exchangeMBR)
         return self.exchangeMBR
+
+    def getPartFlags(self, par):
+        #if you make changes here, also update partition.buildConfig
+        boot = par.getFlag(parted.PARTITION_BOOT)
+        lba = par.getFlag(parted.PARTITION_LBA)
+        lvm = par.getFlag(parted.PARTITION_LVM)
+        flags = {'boot':boot, 'lba':lba, 'lvm':lvm}
+        return flags
 
     def getPartitions(self):
         partlist = []
@@ -132,7 +144,16 @@ class BlockDevice(Container):
                               size=par.geometry.length, \
                               exchangeDir=self.exchangeDir, \
                               parttype='primary',\
+                              flags=self.getPartFlags(par),\
                               fs=par._fileSystem.type)
+            partlist.append(p)
+        #get 'partition 0', the interstitial stuff between MBR and p1
+        if partlist[0].startSec > 1:
+            p = part.DiskPartition(number=0, device=self.dev.path, startSec=1, \
+                               size=partlist[0].startSec-1, \
+                               exchangeDir=self.exchangeDir, \
+                               parttype='artificial', fs=None, flags={}, \
+                               storage='block')
             partlist.append(p)
         self.partitions = partlist
         return partlist
@@ -141,14 +162,18 @@ class BlockDevice(Container):
         number = partition[0]
         cfg = partition[1]
         loc = partition[2]
-        print partition
-        if cfg['storage'] == block:
+        if cfg['storage'] == 'block':
             support.dd(count=cfg['size'], seek=cfg['start'], infile=loc, \
                        outfile=self.node, bs=512)
-        if cfg['storage'] == tarball:
-            support.createFS()
-            support
-            support.untar(loc)
+        if cfg['storage'] == 'tarball':
+            #TODO - Migrage the partition creation code here
+            #support.createFS()
+            self.mountDir = self.exchangeDir + "/mount" + str(number)
+            os.mkdir(self.mountDir)
+            support.mount(device=self.node + str(number), dest=self.mountDir)
+            support.tar(tarfile=loc, target='', options='xzf', \
+                        cwd=self.mountDir)
+            support.umount(self.mountDir)
 
     def finalize(self):
         pass
@@ -189,7 +214,7 @@ class Archive(Container):
     def getDisk(self):
         return self.extractFromConfig('disk')
 
-    def putMBR(self, mbrloc):
+    def putMBR(self, mbrloc, codeonly=False):
         self.addFile(mbrloc)
 
     def getMBR(self):
@@ -201,6 +226,18 @@ class Archive(Container):
         self.addToConfig('p' + str(number), partition[1])
         self.addFile(partition[2])
 
+    def getPartFlags(self, partflags):
+        #if you make changes here, also update partition.buildConfig
+        #TODO convert config file flags string into a dict of flags
+        flags = {'boot':False, 'lba':False, 'lvm':False}
+        cfgflags = partflags.split(':')
+        for f in cfgflags:
+            try:
+                flags[f] = True
+            except KeyError:
+                pass
+        return flags
+
     def getPartitions(self):
         exp = re.compile('p[0-9]+')
         parts = []
@@ -208,13 +245,16 @@ class Archive(Container):
             if exp.match(s):
                 number = s[1:]
                 cfginfo = self.extractFromConfig(s)
+                self.getPartFlags(cfginfo['flags'])
                 parts.append(part.ArchivePartition(number=number, \
                                           archive=self.ar, \
                                           startSec=cfginfo['start'],\
                                           size=cfginfo['size'],\
                                           exchangeDir=self.exchangeDir,\
                                           parttype=cfginfo['type'],\
-                                          fs=cfginfo['filesystem']))
+                                          fs=cfginfo['filesystem'],\
+                                          flags=self.getPartFlags(cfginfo['flags']),
+                                          storage=cfginfo['storage']))
         return parts
 
     def addToConfig(self, sectionName, sectionData):

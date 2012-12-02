@@ -26,15 +26,17 @@ import support
 
 class Partition(object):
     def __init__(self, number, start, size, fstype, parttype=None, \
-                 device=None):
+                 device=None, flags={}, storage='tarball'):
         self.number = int(number) #the partition number /dev/sda1 = 1
         self.start = int(start) #location at which the partition starts (in sectors)
         self.size = int(size) #length of the partition (in sectors)
-        self.fstype = str(fstype) 
-        self.parttype = parttype  #'primary' or 'extended', None -> no override 
+        self.fstype = str(fstype)
+        self.parttype = parttype  #'primary' or 'extended', None -> no override
         self.device = device    #the path to the parted block device '/dev/sda'
+        self.flags = flags
+        self.storage = storage #'block' or 'tarball', indicates storage type
 
-    @property 
+    @property
     def end(self):
         return self.start + self.size - 1
 
@@ -47,16 +49,60 @@ class Partition(object):
     def node(self):
         return self.device + str(self.number)
 
+    def get(self):
+        if self.storage == 'block':
+            return self.getBlock()
+        elif self.storage == 'tarball':
+            return self.getTarball()
+
     def composeNode(self, root):
         return root + str(self.number)
+
+    def buildConfig(self):
+        flags = ''
+        try:
+            if(self.flags['boot']):
+                flags += 'boot:'
+        except KeyError:
+            pass
+        try:
+            if(self.flags['lba']):
+                flags += 'lba:'
+        except KeyError:
+            pass
+        try:
+            if(self.flags['lvm']):
+                flags += 'lvm:'
+        except KeyError:
+            pass
+            
+        config = {'start':self.startSec, 'size':self.size, \
+                  'type':self.parttype,  'filesystem':self.fstype,
+                  'storage':self.storage, 'flags':flags }
+        return config
 
     def __str__(self):
         s = "Partition " + str(self.number) + ": [" + str(self.start) + ", " \
             + str(self.start + self.size) + "]s" + " " + self.fstype
         return s
 
+class PartitionOptions(object):
+    # destinataion partition options
+    # -PN:block, -PN:tarball
+    def __init__(self, args):
+        self.storage = 'tarball'
+
+        a = args.split(':')
+        self.number = int(a[0])
+        opt = a[1]
+        if opt == 'block':
+            self.storage = 'block'
+        elif opt == 'tarball':
+            self.storage = 'tarball'
+
 class PartitionSpec(Partition):
-    #partition options are in the format of -pN:start:len:units:fstype
+    # source partition options
+    # partition options are in the format of -pN:start:len:units:fstype
     # N is partition number
     # start is the start of the partition
     # len is the size of the partition
@@ -81,14 +127,16 @@ class PartitionSpec(Partition):
 
 class DiskPartition(Partition):
     def __init__(self, number, device, startSec, size, exchangeDir, \
-                 parttype, fs):
+                 parttype, fs, flags, storage='tarball'):
         super(DiskPartition, self).__init__(\
             number = number, \
             start = startSec, \
             size = size, \
             fstype = fs, \
             parttype = parttype, \
-            device = device)
+            device = device, \
+            flags = flags, \
+            storage = storage)
         self.exchangeDir = exchangeDir
 
     #def __del__(self):
@@ -105,11 +153,7 @@ class DiskPartition(Partition):
         subprocess.call(['gzip', '-c', '--best'], stdin=p.stdout, stdout=efd)
         efd.close()
 
-        #partition is a tuple of (number, config_info, exchangefilelocation)
-        config = {'start':self.startSec, 'size':self.size, \
-                  'type':self.parttype,  'filesystem':self.fstype, \
-                  'storage':'block'}
-        return (self.number, config, self.exchangeFile)
+        return (self.number, self.buildConfig(), self.exchangeFile)
 
     def getTarball(self):
         self.exchangeFile = self.exchangeDir + "/p" + str(self.number)
@@ -121,20 +165,19 @@ class DiskPartition(Partition):
                     cwd=self.mountDir)
         support.umount(self.mountDir)
 
-        #partition is a tuple of (number, config_info, exchangefilelocation)
-        config = {'start':self.startSec, 'size':self.size, \
-                  'type':self.parttype,  'filesystem':self.fstype, \
-                  'storage':'tarball'}
-        return (self.number, config, self.exchangeFile)
+        return (self.number, self.buildConfig(), self.exchangeFile)
 
 class ArchivePartition(Partition):
-    def __init__(self, number, archive, startSec, size, exchangeDir, parttype, fs):
+    def __init__(self, number, archive, startSec, size, exchangeDir, parttype,\
+                 fs, flags, storage):
         super(ArchivePartition, self).__init__(\
             number=number, \
             start=startSec, \
             size=size, \
             parttype=parttype, \
-            fstype=fs)
+            fstype=fs, \
+            flags=flags, \
+            storage=storage)
 
         self.exchangeDir = exchangeDir
         self.ar = archive
@@ -147,11 +190,15 @@ class ArchivePartition(Partition):
                         stdout=efd)
         efd.close()
 
-        config = {'start':self.startSec, 'size':self.size, \
-                  'type':self.parttype,  'filesystem':self.fstype}
-        return (self.number, config, self.exchangeFile)
+        return (self.number, self.buildConfig(), self.exchangeFile)
 
-def adjustPartitions(partlist, partspecs):
+    def getTarball(self):
+        self.exchangeFile = support.arGet(self.ar, "p" + str(self.number), \
+                                          self.exchangeDir)
+
+        return (self.number, self.buildConfig(), self.exchangeFile)
+
+def adjustPartitions(partlist, partspecs, partopts):
     #TODO - need some significant sanity checking here
     for p in partlist:
         merge = False
@@ -168,4 +215,7 @@ def adjustPartitions(partlist, partspecs):
                                      + "size.\n")
                 p.size = s.size   
                 merge = True
+        for s in partopts:
+            if s.number == p.number:
+                p.storage = s.storage
     return partlist

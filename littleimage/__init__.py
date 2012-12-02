@@ -26,7 +26,7 @@ import container
 import partition as part
 import hardware as hw
 
-def convertImage(fromLoc, toLoc, partSpecs):
+def convertImage(fromLoc, toLoc, partSpecs, partOpts):
     meta = fromLoc.getMeta()
     try:
         if float(meta['format_ver']) != float(hw.LIM_VERSION):
@@ -55,35 +55,45 @@ def convertImage(fromLoc, toLoc, partSpecs):
     #write block-device partitions
 
     #try to create block devices sized to part specifiers
-    #toLoc.putMBR(fromLoc.getMBR())
     parts = fromLoc.getPartitions()
-    parts = part.adjustPartitions(parts, partSpecs)
+    parts = part.adjustPartitions(parts, partSpecs, partOpts)
     toLoc.putGeom(parts)
-    raise "breakage"
+    toLoc.putMBR(fromLoc.getMBR(), codeonly=True)
     for par in parts:
-        toLoc.putPartition(par.getBlock())
+        partition = par.get()
+        toLoc.putPartition(partition)
 
     toLoc.finalize()
 
 def usage():
     print("Little Image Manager (LIM)")
     print("Usage:")
-    print("-d, -a <file> : Specify source device (-d) or source archive (-a)")
-    print("-u <URL> : Specify a source URL at which an archive is located")
-    print("-r <URL> : Specify a source URL at which a repository manifest is located")
-    print("-D, -A <file> : Specify destination device (-D) or destination archive (-A)")
+    print("\t-d, -a <file> : Specify source device (-d) or source archive (-a)")
+    print("\t-u <URL> : Specify a source URL at which an archive is located")
+    print("\t-r <URL> : Specify a source URL at which a repository manifest is located")
+    print("\t-D, -A <file> : Specify destination device (-D) or destination archive (-A)")
+    print("Partition Specification:")
+    print("\tSource Options (respecify criteria from source)")
+    print("\t-pN:start:len:units:fstype")
+    print("\t\t N - partition number")
+    print("\t\t start - starting point of partition (in units)")
+    print("\t\t len - length of partition (in units)")
+    print("\t\t units - the units to interpret start/len in (as recognized by parted, default sectors)")
+    print("\t\t fstype - file system type to use for this partition (ext2,ext3,ext4,fat16,fat32)")
+    print("\tDestination (specify storage container options:")
+    print("\t\t-PN:block -- store partition #N as block data (dd)")
+    print("\t\t-PN:tarball -- store partition #N as compressed filesystem")
 
 def main(argv):
     try:
-        opts, leftover = getopt.getopt(argv[1: ], 'd:a:u:r:D:A:p:',
+        opts, leftover = getopt.getopt(argv[1: ], 'd:a:u:r:D:A:p:P:',
                                                           ['src-device=',
                                                            'src-archive=',
                                                            'src-url=',
                                                            'src-repo=',
                                                            'dst-device=',
                                                            'dst-archive=',
-                                                           'config=',
-                                                           'partition='])
+                                                           'config='])
     except getopt.GetoptError:
         print "Invalid Options: "
         print "Usage!!"
@@ -91,6 +101,7 @@ def main(argv):
 
     src = None
     dst = None
+    pspecs = []
     pops = []
     for opt,arg in opts:
         if   opt in ('-d', '--src-device'):
@@ -117,12 +128,14 @@ def main(argv):
             if(dst):
                 raise "May not have more than one destination."
             dst = container.Archive(arg)
-        elif opt in ('-p', '--partition'):
-            pops.append(part.PartitionSpec(arg))
+        elif opt in ('-p'):
+            pspecs.append(part.PartitionSpec(arg))
+        elif opt in ('-P'):
+            pops.append(part.PartitionOptions(arg))
         else:
             pass
     if src and dst:
-        return convertImage(src, dst, pops)
+        return convertImage(src, dst, pspecs, pops)
     else:
         usage()
         return 2

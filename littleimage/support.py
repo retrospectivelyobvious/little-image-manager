@@ -148,11 +148,11 @@ def mkfs(device, fstype):
     elif fstype == 'ext4':
         fsprog = 'mkfs.ext4'
     elif fstype == 'fat16':
-        fsprog == 'mkfs.vfat'
-        opts = ['F16']
+        fsprog = 'mkfs.vfat'
+        opts = ['-F16']
     elif fstype == 'fat32':
-        fsprog == 'mkfs.vfat'
-        opts = ['F32']
+        fsprog = 'mkfs.vfat'
+        opts = ['-F32']
 
     call = [fsprog]
     call.extend(opts)
