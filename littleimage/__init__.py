@@ -61,6 +61,7 @@ def convertImage(fromLoc, toLoc, partSpecs, partOpts):
     toLoc.putMBR(fromLoc.getMBR(), codeonly=True)
     for par in parts:
         partition = par.get()
+        flags = par.flags
         toLoc.putPartition(partition)
 
     toLoc.finalize()

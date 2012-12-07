@@ -103,6 +103,7 @@ class BlockDevice(Container):
                 p = parted.Partition(disk=disk, fs=fs, type=ptype, geometry=g)
                 c = parted.Constraint(exactGeom = g)
                 disk.addPartition(partition=p, constraint=c)
+                setFlags(p, par.flags)
         disk.commit()
 
         #refresh the OS's view of the disk
@@ -245,7 +246,6 @@ class Archive(Container):
             if exp.match(s):
                 number = s[1:]
                 cfginfo = self.extractFromConfig(s)
-                self.getPartFlags(cfginfo['flags'])
                 parts.append(part.ArchivePartition(number=number, \
                                           archive=self.ar, \
                                           startSec=cfginfo['start'],\
@@ -329,3 +329,11 @@ class Repo(URL):
             super(Repo, self).__init__( imglist[int(index)].loc )
         except:
             raise
+
+def setFlags(partedPartition, partFlags):
+    if partFlags['boot']:
+        partedPartition.setFlag(parted.PARTITION_BOOT)
+    if partFlags['lba']:
+        partedPartition.setFlag(parted.PARTITION_LBA)
+    if partFlags['lvm']:
+        partedPartition.setFlag(parted.PARTITION_LVM)
