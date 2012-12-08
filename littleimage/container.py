@@ -144,17 +144,23 @@ class BlockDevice(Container):
                               startSec=par.geometry.start, \
                               size=par.geometry.length, \
                               exchangeDir=self.exchangeDir, \
-                              parttype='primary',\
-                              flags=self.getPartFlags(par),\
-                              fs=par._fileSystem.type)
+                              parttype='primary', \
+                              fs=par._fileSystem.type, \
+                              msdoslabel=support.readPartID(self.dev.path, par.number), \
+                              flags=self.getPartFlags(par))
             partlist.append(p)
         #get 'partition 0', the interstitial stuff between MBR and p1
         if partlist[0].startSec > 1:
-            p = part.DiskPartition(number=0, device=self.dev.path, startSec=1, \
-                               size=partlist[0].startSec-1, \
-                               exchangeDir=self.exchangeDir, \
-                               parttype='artificial', fs=None, flags={}, \
-                               storage='block')
+            p = part.DiskPartition(number=0, \
+                                   device=self.dev.path, \
+                                   startSec=1, \
+                                   size=partlist[0].startSec-1, \
+                                   exchangeDir=self.exchangeDir, \
+                                   parttype='artificial', \
+                                   fs=None, \
+                                   msdoslabel=0, \
+                                   flags={}, \
+                                   storage='block')
             partlist.append(p)
         self.partitions = partlist
         return partlist
@@ -166,6 +172,7 @@ class BlockDevice(Container):
         if cfg['storage'] == 'block':
             support.dd(count=cfg['size'], seek=cfg['start'], infile=loc, \
                        outfile=self.node, bs=512)
+            #TODO - Do you need to restore the disk lable byte for a block put
         if cfg['storage'] == 'tarball':
             #TODO - Migrage the partition creation code here
             #support.createFS()
@@ -175,6 +182,7 @@ class BlockDevice(Container):
             support.tar(tarfile=loc, target='', options='xzf', \
                         cwd=self.mountDir)
             support.umount(self.mountDir)
+            support.writePartID(self.node, number, int(cfg['label']))
 
     def finalize(self):
         pass
@@ -253,6 +261,7 @@ class Archive(Container):
                                           exchangeDir=self.exchangeDir,\
                                           parttype=cfginfo['type'],\
                                           fs=cfginfo['filesystem'],\
+                                          msdoslabel=cfginfo['label'],\
                                           flags=self.getPartFlags(cfginfo['flags']),
                                           storage=cfginfo['storage']))
         return parts

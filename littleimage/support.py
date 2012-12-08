@@ -162,3 +162,33 @@ def mkfs(device, fstype):
         raise errors.SubprocessError(fsprog, r)
     else:
         return True
+
+def readPartID(device, partNum):
+    partTableBase = 0x1BE
+    IDlocOffset = 0x4
+    partTableEntryLen = 0x10
+
+    r = 0
+    if partNum > 0:
+        IDloc = partTableBase + (partNum-1)*partTableEntryLen + IDlocOffset
+
+        fd = open(device, "r") #open read
+        fd.seek(IDloc)
+        r = ord(fd.read(1))
+        fd.close()
+
+    return r
+
+def writePartID(device, partNum, id):
+    partTableBase = 0x1BE
+    IDlocOffset = 0x4
+    partTableEntryLen = 0x10
+
+    if id > 0:
+        #http://en.wikipedia.org/wiki/Master_boot_record
+        IDloc = partTableBase + (partNum-1)*partTableEntryLen + IDlocOffset
+
+        fd = open(device, "r+b") #open read/write, no truncation
+        fd.seek(IDloc)
+        fd.write("%c" % id)
+        fd.close()

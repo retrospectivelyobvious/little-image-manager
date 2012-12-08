@@ -25,7 +25,7 @@ import errors
 import support
 
 class Partition(object):
-    def __init__(self, number, start, size, fstype, parttype=None, \
+    def __init__(self, number, start, size, fstype, msdoslabel, parttype=None,\
                  device=None, flags={}, storage='tarball'):
         self.number = int(number) #the partition number /dev/sda1 = 1
         self.start = int(start) #location at which the partition starts (in sectors)
@@ -34,6 +34,8 @@ class Partition(object):
         self.parttype = parttype  #'primary' or 'extended', None -> no override
         self.device = device    #the path to the parted block device '/dev/sda'
         self.flags = flags
+        self.msdoslabel = msdoslabel #msdos disk label, not used frequently but
+                                     #uboot thinks its important
         self.storage = storage #'block' or 'tarball', indicates storage type
 
     @property
@@ -77,7 +79,8 @@ class Partition(object):
             pass
             
         config = {'start':self.startSec, 'size':self.size, \
-                  'type':self.parttype,  'filesystem':self.fstype,
+                  'type':self.parttype,  'filesystem':self.fstype, \
+                  'label':self.msdoslabel, \
                   'storage':self.storage, 'flags':flags }
         return config
 
@@ -127,12 +130,13 @@ class PartitionSpec(Partition):
 
 class DiskPartition(Partition):
     def __init__(self, number, device, startSec, size, exchangeDir, \
-                 parttype, fs, flags, storage='tarball'):
+                 parttype, fs, msdoslabel, flags, storage='tarball'):
         super(DiskPartition, self).__init__(\
             number = number, \
             start = startSec, \
             size = size, \
             fstype = fs, \
+            msdoslabel = msdoslabel, \
             parttype = parttype, \
             device = device, \
             flags = flags, \
@@ -169,13 +173,14 @@ class DiskPartition(Partition):
 
 class ArchivePartition(Partition):
     def __init__(self, number, archive, startSec, size, exchangeDir, parttype,\
-                 fs, flags, storage):
+                 fs, msdoslabel, flags, storage):
         super(ArchivePartition, self).__init__(\
             number=number, \
             start=startSec, \
             size=size, \
             parttype=parttype, \
             fstype=fs, \
+            msdoslabel=msdoslabel, \
             flags=flags, \
             storage=storage)
 
