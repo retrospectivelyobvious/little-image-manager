@@ -143,13 +143,9 @@ class DiskPartition(Partition):
             storage = storage)
         self.exchangeDir = exchangeDir
 
-    #def __del__(self):
-    #    if self.exchangeFile:
-    #       self.exchangeFile.close()
-    #       support.rm(self.exchangeFile)
-
     def getBlock(self):
-        self.exchangeFile = self.exchangeDir + "/p" + str(self.number)
+        self.exchangeFile = os.path.join(self.exchangeDir, \
+                                         "p" + str(self.number))
         p = support.ddPopen(count=self.size, skip=self.startSec, \
                             infile=self.device, \
                             outfile=subprocess.PIPE)
@@ -160,9 +156,11 @@ class DiskPartition(Partition):
         return (self.number, self.buildConfig(), self.exchangeFile)
 
     def getTarball(self):
-        self.exchangeFile = self.exchangeDir + "/p" + str(self.number)
+        self.exchangeFile = os.path.join(self.exchangeDir, \
+                                         "p" + str(self.number))
 
-        self.mountDir = self.exchangeDir + "/mount" + str(self.number)
+        self.mountDir = os.path.join(self.exchangeDir, \
+                                     "mount" + str(self.number))
         os.mkdir(self.mountDir)
         support.mount(device=self.device + str(self.number), dest=self.mountDir)
         support.tar(tarfile=self.exchangeFile, target='.', options='czf', \
@@ -188,7 +186,8 @@ class ArchivePartition(Partition):
         self.ar = archive
 
     def getBlock(self):
-        self.exchangeFile = self.exchangeDir + "/p" + str(self.number)
+        self.exchangeFile = os.path.join(self.exchangeDir, \
+                                         "p" + str(self.number))
         fd = support.arStream(self.ar, 'p' + str(self.number))
         efd = open(self.exchangeFile, 'w+b')
         subprocess.call(['gzip', '-d', '-c'], stdin=fd, \

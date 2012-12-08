@@ -41,20 +41,6 @@ def convertImage(fromLoc, toLoc, partSpecs, partOpts):
     toLoc.putMeta(meta)
     toLoc.putDisk(fromLoc.getDisk())
 
-    #read partition specifiers from archive
-    #override any parts specified on command line (warn about shrinkage or
-    #   shifted start points)
-    #write MBR
-    # for each partition pair
-    #    dest(geometry info, fs type info,
-    #    src( writeTar(geometry info, fs type info), writeBlock() )
-    #    dest.write(src, write(Tar/Block))
-
-    #create any needed file systems
-    #write FS partitions
-    #write block-device partitions
-
-    #try to create block devices sized to part specifiers
     parts = fromLoc.getPartitions()
     parts = part.adjustPartitions(parts, partSpecs, partOpts)
     toLoc.putGeom(parts)

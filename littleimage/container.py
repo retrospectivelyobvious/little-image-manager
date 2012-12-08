@@ -35,8 +35,19 @@ import errors
 class Container(object):
     def __init__(self):
         pass
-    def tidy(self):
-        pass
+
+    def __del__(self):
+        try:
+            if self.exchangeDir:
+                for root, dirs, files in os.walk(self.exchangeDir, topdown=False):
+                    for f in files:
+                        os.remove(os.path.join(root, f))
+                    for d in dirs:
+                        os.rmdir(os.path.join(root, d))
+                os.rmdir(self.exchangeDir)
+        except:
+            pass
+
     def putMeta(self, meta):
         pass
     def putDisk(self, disk):
@@ -47,21 +58,10 @@ class Container(object):
 class BlockDevice(Container):
     def __init__(self, node, src=False):
         self.node = node
-        self.dirt = []
         self.exchangeDir = tempfile.mkdtemp()
         self.dev = parted.Device(node)
         if(src):
             self.disk = parted.Disk(self.dev)
-
-    def tidy():
-        while self.dirt:
-            d = self.dirt.pop(0)
-            os.system('rm ' + d)
-        try:
-            for p in self.partitions:
-                p.tidy()
-        except:
-            raise
 
     def getMeta(self):
         meta = {}
@@ -123,9 +123,9 @@ class BlockDevice(Container):
             support.dd(count=1, infile=mbrloc, outfile=self.node, bs=512)
 
     def getMBR(self):
-        self.exchangeMBR = self.exchangeDir + "/MBR"
+        self.exchangeMBR = os.path.join(self.exchangeDir, "MBR")
         support.dd(count=1, infile=self.dev.path, \
-                   outfile=self.exchangeMBR)
+                   bs=512, outfile=self.exchangeMBR)
         return self.exchangeMBR
 
     def getPartFlags(self, par):
@@ -176,7 +176,8 @@ class BlockDevice(Container):
         if cfg['storage'] == 'tarball':
             #TODO - Migrage the partition creation code here
             #support.createFS()
-            self.mountDir = self.exchangeDir + "/mount" + str(number)
+            self.mountDir = os.path.join(self.exchangeDir, \
+                                         "mount" + str(number))
             os.mkdir(self.mountDir)
             support.mount(device=self.node + str(number), dest=self.mountDir)
             support.tar(tarfile=loc, target='', options='xzf', \
