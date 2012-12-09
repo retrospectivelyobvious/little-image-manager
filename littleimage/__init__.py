@@ -93,27 +93,27 @@ def main(argv):
     for opt,arg in opts:
         if   opt in ('-d', '--src-device'):
             if(src):
-                raise "May not have more than one source."
+                raise Exception("May not have more than one source.")
             src = container.BlockDevice(arg, src=True)
         elif opt in ('-D', '--dst-device'):
             if(dst):
-                raise "May not have more than one destination."
+                raise Exception("May not have more than one destination.")
             dst = container.BlockDevice(arg)
         elif opt in ('-a', '--src-archive'):
             if(src):
-                raise "May not have more than one source."
+                raise Exception("May not have more than one source.")
             src = container.Archive(arg, src=True)
         elif opt in ('-u', '--src-url'):
             if(src):
-                raise "May not have more than one source."
+                raise Exception("May not have more than one source.")
             src = container.URL(arg)
         elif opt in ('-r', '--src-repo'):
             if(src):
-                raise "May not have more than one source."
+                raise Exception("May not have more than one source.")
             src = container.Repo(arg)
         elif opt in ('-A', '--dst-archive'):
             if(dst):
-                raise "May not have more than one destination."
+                raise Exception("May not have more than one destination.")
             dst = container.Archive(arg)
         elif opt in ('-p'):
             pspecs.append(part.PartitionSpec(arg))
