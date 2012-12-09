@@ -24,7 +24,8 @@ import errors
 def dd(count, skip=0, seek=0, infile='/dev/zero', outfile='/dev/null', bs=512):
     return ddPopen(count, skip, seek, infile, outfile, bs, False)
 
-def ddPopen(count, skip=0, seek=0, infile='/dev/zero', outfile='/dev/null', bs=512, process=True):
+def ddPopen(count, skip=0, seek=0, infile='/dev/zero', outfile='/dev/null', \
+            bs=512, process=True, dbg=False):
     call = ['dd', 'count=' + str(count) ]
     infd = None
     outfd = None
@@ -61,21 +62,41 @@ def ddPopen(count, skip=0, seek=0, infile='/dev/zero', outfile='/dev/null', bs=5
         except:
             pass
 
+    null = 0
+    stderr = None
+    if not dbg:
+        null = open('/dev/null', 'w')
+        stderr = null
+
     if(process):
-        return subprocess.Popen(call, stdin=infd, stdout=outfd)
+        return subprocess.Popen(call, stdin=infd, stdout=outfd, stderr=null)
     else:
-        r = subprocess.call(call, stdin=infd, stdout=outfd)
+        r = subprocess.call(call, stdin=infd, stdout=outfd, stderr=null)
+        if not dbg:
+            null.close()
         #shell truth (0=success) is inverted from normal (1=True) 
         if(r):
             raise errors.SubprocessError('dd', r)
         return True
 
-def ar(archive, member, p, mod, stdin=None, stdout=None, stderr=None, process=False):
+def ar(archive, member, p, mod, stdin=None, stdout=None, \
+       process=False, dbg=False):
     call = ['ar', str(p) + str(mod), str(archive), str(member)]
+
+    stdo=stdout
+    stderr=None
+    null = 0
+    if not dbg:
+        null = open('/dev/null','w')
+        stdo = null
+        stderr = null
+
     if(process):
         return subprocess.Popen(call, stdin=stdin, stdout=stdout, stderr=stderr)
     else:
         r = subprocess.call(call, stdin=stdin, stdout=stdout, stderr=stderr)
+        if not dbg:
+            null.close()
         if r != 0:
             # 1 == ar return code for 'unrecognized format'
             # 9 == ar return code for 'no such file'
@@ -93,15 +114,27 @@ def arStream(archive, member):
 def arGet(archive, member, getDir):
     name = getDir + '/' + str(member)
     efd = open(name, 'wb')
-    nfd = open('/dev/null', 'wb')
-    ar(archive, member, p='p', mod='D', stdout=efd, stderr=nfd)
+    ar(archive, member, p='p', mod='D', stdout=efd)
     efd.close()
-    nfd.close()
     return name
 
-def tar(tarfile='/dev/null', target='/dev/zero', options='czf', cwd=None):
+def tar(tarfile='/dev/null', target='/dev/zero', options='czf', cwd=None, \
+        dbg=False):
     call = ['tar', options, tarfile, target]
-    p = subprocess.Popen(call, cwd=cwd)
+
+    stdout=None
+    stderr=None
+    null = 0
+    if not dbg:
+        null = open('/dev/null','w')
+        stdout = null
+        stderr = null
+
+    p = subprocess.Popen(call, cwd=cwd, stdout=stdout, stderr=stderr)
+
+    if not dbg:
+        null.close()
+
     r = p.wait()
     if(r):
         raise errors.SubprocessError('tar', r)
@@ -139,7 +172,7 @@ def partprobe(device=''):
     else:
         return True
 
-def mkfs(device, fstype):
+def mkfs(device, fstype, dbg=False):
     opts = []
     if fstype == 'ext2':
         fsprog = 'mkfs.ext2'
@@ -157,7 +190,20 @@ def mkfs(device, fstype):
     call = [fsprog]
     call.extend(opts)
     call.append(device)
-    r = subprocess.call(call)
+
+    stdout=None
+    stderr=None
+    null = 0
+    if not dbg:
+        null = open('/dev/null','w')
+        stdout = null
+        stderr = null
+
+    r = subprocess.call(call, stdout=stdout, stderr=stderr)
+
+    if not dbg:
+        null.close()
+
     if(r):
         raise errors.SubprocessError(fsprog, r)
     else:
