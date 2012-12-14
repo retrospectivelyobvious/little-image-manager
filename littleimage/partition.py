@@ -104,15 +104,19 @@ class PartitionOptions(object):
             self.storage = 'tarball'
 
 class PartitionSpec(Partition):
-    # source partition options
-    # partition options are in the format of -pN:start:len:units:fstype
-    # N is partition number
-    # start is the start of the partition
-    # len is the size of the partition
-    # units are the units that start & end are specified in
-    # fstype is the file system type
-    # start, end, units, and fstype should be in notation understood by the
-    #     'parted' program
+    """
+    Source Partition Option Parser
+    format:    -pN:start:len:units:fstype
+
+    N - partition number
+    start - start of the partition
+    len - size of the partition
+    units - units that start & end are specified in
+    fstype - file system type
+
+    * start, end, units, and fstype should be in notation understood by the
+      'parted' program
+    """
     def __init__(self, args):
         a = args.split(':')
         units = a[3]
@@ -127,6 +131,16 @@ class PartitionSpec(Partition):
             start = int(a[1]), \
             size = int(a[2]), \
             fstype = a[4])
+
+class PartExchangeDescriptor(object):
+    """
+    A description of a partition as rendered to a tempdir for exchange between
+    two endpoints (block device, archive, etc)
+    """
+    def __init__(self, number, config, exchangeloc):
+        self.number = number
+        self.config = config
+        self.exchangeloc = exchangeloc
 
 class DiskPartition(Partition):
     def __init__(self, number, device, startSec, size, exchangeDir, \
@@ -153,7 +167,7 @@ class DiskPartition(Partition):
         subprocess.call(['gzip', '-c', '--best'], stdin=p.stdout, stdout=efd)
         efd.close()
 
-        return (self.number, self.buildConfig(), self.exchangeFile)
+        return PartExchangeDescriptor(self.number, self.buildConfig(), self.exchangeFile)
 
     def getTarball(self):
         self.exchangeFile = os.path.join(self.exchangeDir, \
@@ -167,7 +181,7 @@ class DiskPartition(Partition):
                     cwd=self.mountDir)
         support.umount(self.mountDir)
 
-        return (self.number, self.buildConfig(), self.exchangeFile)
+        return PartExchangeDescriptor(self.number, self.buildConfig(), self.exchangeFile)
 
 class ArchivePartition(Partition):
     def __init__(self, number, archive, startSec, size, exchangeDir, parttype,\
@@ -194,17 +208,17 @@ class ArchivePartition(Partition):
                         stdout=efd)
         efd.close()
 
-        return (self.number, self.buildConfig(), self.exchangeFile)
+        return PartExchangeDescriptor(self.number, self.buildConfig(), self.exchangeFile)
 
     def getTarball(self):
         self.exchangeFile = support.arGet(self.ar, "p" + str(self.number), \
                                           self.exchangeDir)
 
-        return (self.number, self.buildConfig(), self.exchangeFile)
+        return PartExchangeDescriptor(self.number, self.buildConfig(), self.exchangeFile)
 
-def adjustPartitions(partlist, partspecs, partopts):
+def adjustPartitions(limpartlist, partspecs, partopts):
     #TODO - need some significant sanity checking here
-    for p in partlist:
+    for p in limpartlist:
         merge = False
         for s in partspecs:
             if s.number == p.number:
@@ -222,4 +236,4 @@ def adjustPartitions(partlist, partspecs, partopts):
         for s in partopts:
             if s.number == p.number:
                 p.storage = s.storage
-    return partlist
+    return limpartlist

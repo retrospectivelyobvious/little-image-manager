@@ -33,7 +33,7 @@ def convertImage(fromLoc, toLoc, partSpecs, partOpts):
             print "The source (" + str(meta['format_ver']) + ") " \
                   + "was not created with this version of LIM (" + \
                   str(hw.LIM_VERSION) + ")."
-            print "It is not safe to continue - bailing."
+            print "It is probably not safe to continue - bailing."
             return 3
     except:
         return 3
@@ -41,35 +41,37 @@ def convertImage(fromLoc, toLoc, partSpecs, partOpts):
     toLoc.putMeta(meta)
     toLoc.putDisk(fromLoc.getDisk())
 
-    parts = fromLoc.getPartitions()
-    parts = part.adjustPartitions(parts, partSpecs, partOpts)
-    toLoc.putGeom(parts)
+    lparts = fromLoc.getLimPartitions()
+    lparts = part.adjustPartitions(lparts, partSpecs, partOpts)
+    toLoc.putGeom(lparts)
     toLoc.putMBR(fromLoc.getMBR(), codeonly=True)
-    for par in parts:
-        partition = par.get()
-        flags = par.flags
-        toLoc.putPartition(partition)
+    for par in lparts:
+        exchangeDesc = par.get()
+        toLoc.putPartition(exchangeDesc)
 
     toLoc.finalize()
 
 def usage():
-    print("Little Image Manager (LIM)")
-    print("Usage:")
-    print("\t-d, -a <file> : Specify source device (-d) or source archive (-a)")
-    print("\t-u <URL> : Specify a source URL at which an archive is located")
-    print("\t-r <URL> : Specify a source URL at which a repository manifest is located")
-    print("\t-D, -A <file> : Specify destination device (-D) or destination archive (-A)")
-    print("Partition Specification:")
-    print("\tSource Options (respecify criteria from source)")
-    print("\t-pN:start:len:units:fstype")
-    print("\t\t N - partition number")
-    print("\t\t start - starting point of partition (in units)")
-    print("\t\t len - length of partition (in units)")
-    print("\t\t units - the units to interpret start/len in (as recognized by parted, default sectors)")
-    print("\t\t fstype - file system type to use for this partition (ext2,ext3,ext4,fat16,fat32)")
-    print("\tDestination (specify storage container options:")
-    print("\t\t-PN:block -- store partition #N as block data (dd)")
-    print("\t\t-PN:tarball -- store partition #N as compressed filesystem")
+    print( \
+"""
+Little Image Manager (LIM)
+Usage:
+\t-d, -a <file> : Specify source device (-d) or source archive (-a)
+\t-u <URL> : Specify a source URL at which an archive is located
+\t-r <URL> : Specify a source URL at which a repository manifest is located
+\t-D, -A <file> : Specify destination device (-D) or destination archive (-A)
+Partition Specification:
+\tSource Options (respecify criteria from source)
+\t-pN:start:len:units:fstype
+\t\t N - partition number
+\t\t start - starting point of partition (in units)
+\t\t len - length of partition (in units)
+\t\t units - the units to interpret start/len in (as recognized by parted, default sectors)
+\t\t fstype - file system type to use for this partition (ext2,ext3,ext4,fat16,fat32)
+\tDestination (specify storage container options:
+\t\t-PN:block -- store partition #N as block data (dd)
+\t\t-PN:tarball -- store partition #N as compressed filesystem
+""")
 
 def main(argv):
     try:
