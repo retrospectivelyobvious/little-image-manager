@@ -23,6 +23,7 @@
 import getopt
 
 import container
+import repo
 import partition as part
 import hardware as hw
 
@@ -108,11 +109,11 @@ def main(argv):
         elif opt in ('-u', '--src-url'):
             if(src):
                 raise Exception("May not have more than one source.")
-            src = container.URL(arg)
+            src = repo.URL(arg)
         elif opt in ('-r', '--src-repo'):
             if(src):
                 raise Exception("May not have more than one source.")
-            src = container.Repo(arg)
+            src = repo.Repo(arg)
         elif opt in ('-A', '--dst-archive'):
             if(dst):
                 raise Exception("May not have more than one destination.")

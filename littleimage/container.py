@@ -286,60 +286,6 @@ class Archive(Container):
         self.addFile(metafile)
         shutil.rmtree(tempdir)
 
-class URL(Archive):
-    def __init__(self, url):
-        tempdir = tempfile.mkdtemp()
-        f = os.path.basename(tempdir)
-        (fname, header) = urllib.urlretrieve(url, tempdir + "/" + f)
-        try:
-            super(URL, self).__init__(fname, src=True)
-        except:
-            raise
-
-    def __del__(self):
-        pass
-
-class RepoImage(object):
-    def __init__(self, name, desc, filehash, url, compression, format_ver, \
-                 img_ver, hw_ver, loc):
-        self.name = name
-        self.desc = desc
-        self.filehash = filehash
-        self.url = url
-        self.compression = compression
-        self.format_ver = format_ver
-        self.img_ver = img_ver
-        self.hw_ver = hw_ver
-        self.loc = loc
-    def __str__(self):
-        s = "(" + str(self.hw_ver) + ") " + self.name + " - " + self.desc
-        return s
-
-class Repo(URL):
-    def __init__(self, repoURL):
-        repoxml = urllib.urlopen(repoURL)
-        repodom = minidom.parse(repoxml)
-        imgs = repodom.getElementsByTagName("image")
-        imglist = []
-        for img in imgs:
-            rimage = RepoImage( \
-                name = img.getElementsByTagName("name")[0].childNodes[0].data, \
-                desc = img.getElementsByTagName("description")[0].childNodes[0].data, \
-                filehash = img.getElementsByTagName("filehash")[0].childNodes[0].data, \
-                url = img.getElementsByTagName("url")[0].childNodes[0].data, \
-                img_ver = img.getElementsByTagName("img_ver")[0].childNodes[0].data, \
-                hw_ver = img.getElementsByTagName("hw_ver")[0].childNodes[0].data, \
-                compression = img.getAttribute("compression"), \
-                format_ver = img.getAttribute("format_ver"), \
-                loc = img.getAttribute("location"))
-            print str(len(imglist)) + ") " + str(rimage)
-            imglist.append(rimage)
-        try:
-            index = raw_input('Pick an Image: ')
-            super(Repo, self).__init__( imglist[int(index)].loc )
-        except:
-            raise
-
 def setFlags(partedPartition, partFlags):
     if partFlags['boot']:
         partedPartition.setFlag(parted.PARTITION_BOOT)
