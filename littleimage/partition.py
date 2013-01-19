@@ -77,7 +77,7 @@ class Partition(object):
                 flags += 'lvm:'
         except KeyError:
             pass
-            
+
         config = {'start':self.startSec, 'size':self.size, \
                   'type':self.parttype,  'filesystem':self.fstype, \
                   'label':self.msdoslabel, \
@@ -106,31 +106,31 @@ class PartitionOptions(object):
 class PartitionSpec(Partition):
     """
     Source Partition Option Parser
-    format:    -pN:start:len:units:fstype
+    #format:    -pN:start:len:units:fstype
+    format:    -pN:start:len:fstype
 
     N - partition number
-    start - start of the partition
-    len - size of the partition
-    units - units that start & end are specified in
+    start - start of the partition (in sectors)
+    len - size of the partition (in sectors)
+    #units - units that start & end are specified in
     fstype - file system type
-
-    * start, end, units, and fstype should be in notation understood by the
-      'parted' program
     """
     def __init__(self, args):
         a = args.split(':')
-        units = a[3]
-        #TODO: eventually we'll process units from something user specified
-        #into sectors. For the moment, reject anything that's not already in
-        #sectors
-        if units != 's':
-            raise UnitsError(units)
 
-        super(PartitionSpec, self).__init__(\
-            number = a[0], \
-            start = int(a[1]), \
-            size = int(a[2]), \
-            fstype = a[4])
+        #TODO: eventually we'll process units from something user specified
+        #into sectors. For the moment assume that everything is given in
+        #sectors
+        #units = a[3]
+        #if units != 's':
+        #    raise UnitsError(units)
+
+        super(PartitionSpec, self).__init__(
+              number = a[0],
+              start = int(a[1]),
+              size = int(a[2]),
+              fstype = a[3],
+              msdoslabel=None)
 
 class PartExchangeDescriptor(object):
     """
@@ -238,7 +238,7 @@ def adjustPartitions(limpartlist, partspecs, partopts):
                     sys.stderr.write("Please ensure that the total content "\
                                      + "size is less than the specified "\
                                      + "size.\n")
-                p.size = s.size   
+                p.size = s.size
                 merge = True
         for s in partopts:
             if s.number == p.number:

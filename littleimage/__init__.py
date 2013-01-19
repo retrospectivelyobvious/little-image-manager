@@ -66,17 +66,17 @@ Usage:
 \t-z <gzip|bzip|xz> : Specify an alternate compression program
 
 Partition Specification:
-\tSource Options (respecify criteria from source when restoring)
-\t-pN:start:len:units:fstype
+\tSource Options (change partition parameters when restoring):
+\t-pN:start:len:fstype
 \t\t N - partition number
 \t\t start - starting point of partition (in units)
 \t\t len - length of partition (in units)
-\t\t units - the units to interpret start/len in (as recognized by parted, default sectors)
 \t\t fstype - file system type to use for this partition (ext2,ext3,ext4,fat16,fat32)
 \tDestination (specify archive properties when saving):
 \t\t-PN:block -- store partition #N as block data (dd)
 \t\t-PN:tarball -- store partition #N as compressed filesystem
 """)
+#\t\t units - the units to interpret start/len in (as recognized by parted, default sectors)
 #\t-r <URL> : Specify a source URL at which a repository manifest is located
 
 def main(argv):

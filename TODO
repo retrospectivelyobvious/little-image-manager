@@ -1,0 +1,5 @@
+* Handle loop devices (allow conversion from .img file to .lim)
+* Allow unit type specification in the -pN: syntax
+* Write better auto adjustment code to go along w/the -pN: feature
+    ** Add auto expand-to-fit option
+* Pretty printer for the meta-file data
