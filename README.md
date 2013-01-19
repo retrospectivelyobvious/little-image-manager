@@ -7,7 +7,9 @@ more targeted compression strategy than the typical dd/gzip combination used
 for storing such images. Due to this strategy LIM is able to produce images
 which can be significantly smaller than those produced by dd/gzip for many
 systems. (I've observed LIM images that are half the size of their dd/gzip
-equivalents, see 'How LIM Works' below for more detail.)
+equivalents, see 'How LIM Works' below for more detail.) Additionally, LIM can
+store meta-information about an image within its container format which can be
+useful for constructing image repositories and the like.
 
 LIM's goal is to enable easier experimentation in building new OS images,
 porting OSes, writing custom kernels, and performing OS development, etc,

@@ -3,3 +3,4 @@
 * Write better auto adjustment code to go along w/the -pN: feature
     ** Add auto expand-to-fit option
 * Pretty printer for the meta-file data
+* Include checksum information in the meta-data
