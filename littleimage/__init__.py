@@ -27,8 +27,8 @@ import repo
 import partition as part
 import hardware as hw
 
-def convertImage(fromLoc, toLoc, partSpecs, partOpts):
-    meta = fromLoc.getMeta()
+def convertImage(fromLoc, toLoc, partSpecs, partOpts, needmeta, comptype):
+    meta = fromLoc.getMeta(comptype, needmeta)
     try:
         if float(meta['format_ver']) != float(hw.LIM_VERSION):
             print "The source (" + str(meta['format_ver']) + ") " \
@@ -39,6 +39,8 @@ def convertImage(fromLoc, toLoc, partSpecs, partOpts):
     except:
         return 3
 
+    compress = support.Compress(meta['compression'])
+
     toLoc.putMeta(meta)
     toLoc.putDisk(fromLoc.getDisk())
 
@@ -47,8 +49,8 @@ def convertImage(fromLoc, toLoc, partSpecs, partOpts):
     toLoc.putGeom(lparts)
     toLoc.putMBR(fromLoc.getMBR(), codeonly=True)
     for par in lparts:
-        exchangeDesc = par.get()
-        toLoc.putPartition(exchangeDesc)
+        exchangeDesc = par.get(compress)
+        toLoc.putPartition(exchangeDesc, compress)
 
     toLoc.finalize()
 
@@ -58,41 +60,47 @@ def usage():
 Little Image Manager (LIM)
 Usage:
 \t-d, -a <file> : Specify source device (-d) or source archive (-a)
-\t-u <URL> : Specify a source URL at which an archive is located
-\t-r <URL> : Specify a source URL at which a repository manifest is located
 \t-D, -A <file> : Specify destination device (-D) or destination archive (-A)
+\t-u <URL> : Specify a source URL at which an archive is located
+\t-M : Disable metadata collection when creating an archive
+\t-z <gzip|bzip|xz> : Specify an alternate compression program
+
 Partition Specification:
-\tSource Options (respecify criteria from source)
+\tSource Options (respecify criteria from source when restoring)
 \t-pN:start:len:units:fstype
 \t\t N - partition number
 \t\t start - starting point of partition (in units)
 \t\t len - length of partition (in units)
 \t\t units - the units to interpret start/len in (as recognized by parted, default sectors)
 \t\t fstype - file system type to use for this partition (ext2,ext3,ext4,fat16,fat32)
-\tDestination (specify storage container options:
+\tDestination (specify archive properties when saving):
 \t\t-PN:block -- store partition #N as block data (dd)
 \t\t-PN:tarball -- store partition #N as compressed filesystem
 """)
+#\t-r <URL> : Specify a source URL at which a repository manifest is located
 
 def main(argv):
     try:
-        opts, leftover = getopt.getopt(argv[1: ], 'd:a:u:r:D:A:p:P:',
+        opts, leftover = getopt.getopt(argv[1: ], 'd:a:u:r:D:A:p:P:Mz:',
                                                           ['src-device=',
                                                            'src-archive=',
                                                            'src-url=',
                                                            'src-repo=',
                                                            'dst-device=',
                                                            'dst-archive=',
-                                                           'config='])
+                                                           'config=',
+                                                           'no-meta',
+                                                           'compression='])
     except getopt.GetoptError:
-        print "Invalid Options: "
-        print "Usage!!"
+        print "Invalid Options"
         return 1
 
     src = None
     dst = None
     pspecs = []
     pops = []
+    needmeta = True
+    compress = 'gzip'
     for opt,arg in opts:
         if   opt in ('-d', '--src-device'):
             if(src):
@@ -122,10 +130,14 @@ def main(argv):
             pspecs.append(part.PartitionSpec(arg))
         elif opt in ('-P'):
             pops.append(part.PartitionOptions(arg))
+        elif opt in ('-M'):
+            needmeta = False
+        elif opt in ('-z', '--compression'):
+            compress = arg
         else:
             pass
     if src and dst:
-        return convertImage(src, dst, pspecs, pops)
+        return convertImage(src, dst, pspecs, pops, needmeta, compress)
     else:
         usage()
         return 2

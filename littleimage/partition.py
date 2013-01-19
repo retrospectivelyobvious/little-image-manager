@@ -51,11 +51,11 @@ class Partition(object):
     def node(self):
         return self.device + str(self.number)
 
-    def get(self):
+    def get(self, compress):
         if self.storage == 'block':
-            return self.getBlock()
+            return self.getBlock(compress)
         elif self.storage == 'tarball':
-            return self.getTarball()
+            return self.getTarball(compress)
 
     def composeNode(self, root):
         return root + str(self.number)
@@ -157,19 +157,20 @@ class DiskPartition(Partition):
             storage = storage)
         self.exchangeDir = exchangeDir
 
-    def getBlock(self):
+    def getBlock(self, compress):
         self.exchangeFile = os.path.join(self.exchangeDir, \
                                          "p" + str(self.number))
         p = support.ddPopen(count=self.size, skip=self.startSec, \
                             infile=self.device, \
                             outfile=subprocess.PIPE)
         efd = open(self.exchangeFile, 'w+b')
-        subprocess.call(['gzip', '-c', '--best'], stdin=p.stdout, stdout=efd)
+        subprocess.call(compress.getCompressOpts(), stdin=p.stdout, stdout=efd)
         efd.close()
 
-        return PartExchangeDescriptor(self.number, self.buildConfig(), self.exchangeFile)
+        return PartExchangeDescriptor(self.number, self.buildConfig(),
+                                      self.exchangeFile)
 
-    def getTarball(self):
+    def getTarball(self, compress):
         self.exchangeFile = os.path.join(self.exchangeDir, \
                                          "p" + str(self.number))
 
@@ -177,8 +178,15 @@ class DiskPartition(Partition):
                                      "mount" + str(self.number))
         os.mkdir(self.mountDir)
         support.mount(device=self.device + str(self.number), dest=self.mountDir)
-        support.tar(tarfile=self.exchangeFile, target='.', options='czf', \
-                    cwd=self.mountDir)
+
+        efd = open(self.exchangeFile, 'w+b')
+        tarp = support.tarCreate_Process(srcdir=self.mountDir)
+        p = subprocess.call(compress.getCompressOpts(), stdin=tarp.stdout,
+                            stdout=efd)
+        efd.close()
+
+        #support.tar(tarfile=self.exchangeFile, target='.', options='czf', \
+        #            cwd=self.mountDir)
         support.umount(self.mountDir)
 
         return PartExchangeDescriptor(self.number, self.buildConfig(), self.exchangeFile)
@@ -199,18 +207,17 @@ class ArchivePartition(Partition):
         self.exchangeDir = exchangeDir
         self.ar = archive
 
-    def getBlock(self):
+    def getBlock(self, compress):
         self.exchangeFile = os.path.join(self.exchangeDir, \
                                          "p" + str(self.number))
         fd = support.arStream(self.ar, 'p' + str(self.number))
         efd = open(self.exchangeFile, 'w+b')
-        subprocess.call(['gzip', '-d', '-c'], stdin=fd, \
-                        stdout=efd)
+        subprocess.call(compress.getDecompressOpts(), stdin=fd, stdout=efd)
         efd.close()
 
         return PartExchangeDescriptor(self.number, self.buildConfig(), self.exchangeFile)
 
-    def getTarball(self):
+    def getTarball(self, compress):
         self.exchangeFile = support.arGet(self.ar, "p" + str(self.number), \
                                           self.exchangeDir)
 

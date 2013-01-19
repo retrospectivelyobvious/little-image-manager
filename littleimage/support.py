@@ -21,11 +21,39 @@
 import subprocess
 import errors
 
+class Compress(object):
+    def __init__(self, comptype):
+        if comptype in ('gzip', 'bzip', 'xz'):
+            self.comptype = comptype
+        else:
+            raise Exception("Invalid Compression Type: " + comptype)
+
+    def getCompressOpts(self):
+        if self.comptype == 'gzip':
+            return ['gzip', '-c', '--best']
+        elif self.comptype == 'bzip':
+            return ['bzip2', '-c', '--best']
+        elif self.comptype == 'xz':
+            return ['xz', '-c', '--best']
+
+    def getDecompressOpts(self):
+        if self.comptype == 'gzip':
+            return ['gzip', '-d', '-c']
+        elif self.comptype == 'bzip':
+            return ['bzip2', '-d', '-c']
+        elif self.comptype == 'xz':
+            return ['xz', '-d', '-c']
+
 def dd(count, skip=0, seek=0, infile='/dev/zero', outfile='/dev/null', bs=512):
-    return ddPopen(count, skip, seek, infile, outfile, bs, False)
+    p = ddPopen(count, skip, seek, infile, outfile, bs)
+    #shell truth (0=success) is inverted from normal (1=True)
+    r = p.wait()
+    if(r):
+        raise errors.SubprocessError('dd', r)
+    return True
 
 def ddPopen(count, skip=0, seek=0, infile='/dev/zero', outfile='/dev/null', \
-            bs=512, process=True, dbg=False):
+            bs=512, dbg=False):
     call = ['dd', 'count=' + str(count) ]
     infd = None
     outfd = None
@@ -62,22 +90,12 @@ def ddPopen(count, skip=0, seek=0, infile='/dev/zero', outfile='/dev/null', \
         except:
             pass
 
-    null = 0
     stderr = None
     if not dbg:
         null = open('/dev/null', 'w')
         stderr = null
 
-    if(process):
-        return subprocess.Popen(call, stdin=infd, stdout=outfd, stderr=null)
-    else:
-        r = subprocess.call(call, stdin=infd, stdout=outfd, stderr=null)
-        if not dbg:
-            null.close()
-        #shell truth (0=success) is inverted from normal (1=True) 
-        if(r):
-            raise errors.SubprocessError('dd', r)
-        return True
+    return subprocess.Popen(call, stdin=infd, stdout=outfd, stderr=null)
 
 def ar(archive, member, p, mod, stdin=None, stdout=None, \
        process=False, dbg=False):
@@ -118,27 +136,29 @@ def arGet(archive, member, getDir):
     efd.close()
     return name
 
-def tar(tarfile='/dev/null', target='/dev/zero', options='czf', cwd=None, \
-        dbg=False):
-    call = ['tar', options, tarfile, target]
+def tarCreate_Process(srcdir, files='.', dbg=False):
+    call = ['tar', 'c', files]
 
-    stdout=None
-    stderr=None
-    null = 0
+    stderr = None
     if not dbg:
         null = open('/dev/null','w')
-        stdout = null
         stderr = null
 
-    p = subprocess.Popen(call, cwd=cwd, stdout=stdout, stderr=stderr)
+    return subprocess.Popen(call, cwd=srcdir, stdout=subprocess.PIPE,
+                            stderr=stderr)
 
+def tarExtract_Process(destdir, stdin=subprocess.PIPE, dbg=False):
+    call = ['tar', 'x']
+
+    stderr = None
+    stdout = None
     if not dbg:
-        null.close()
+        null = open('/dev/null','w')
+        stderr = null
+        stdout = null
 
-    r = p.wait()
-    if(r):
-        raise errors.SubprocessError('tar', r)
-    return True
+    return subprocess.Popen(call, cwd=destdir, stdin=stdin,
+                            stdout=null, stderr=null)
 
 def mount(device, dest):
     call = ['mount', device, dest]

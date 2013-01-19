@@ -27,6 +27,7 @@ import xml.dom.minidom as minidom
 import urllib
 import shutil
 
+import subprocess
 import support
 import partition as limpartition
 import hardware as hw
@@ -39,7 +40,8 @@ class Container(object):
     def __del__(self):
         try:
             if self.exchangeDir:
-                for root, dirs, files in os.walk(self.exchangeDir, topdown=False):
+                for root, dirs, files in os.walk(self.exchangeDir,
+                                                 topdown=False):
                     for f in files:
                         os.remove(os.path.join(root, f))
                     for d in dirs:
@@ -63,17 +65,24 @@ class BlockDevice(Container):
         if(src):
             self.disk = parted.Disk(self.dev)
 
-    def getMeta(self):
+    def getMeta(self, compress, needmeta=True):
         meta = {}
-        meta['name'] = raw_input('Name: ')
-        meta['description'] = raw_input('Description: ')
-        meta['url'] = raw_input('URL: ')
-        meta['compression'] = 'gzip'
-        meta['img_ver'] = raw_input('Image Version: ')
+        if needmeta:
+            meta['name'] = raw_input('Name: ')
+            meta['description'] = raw_input('Description: ')
+            meta['url'] = raw_input('URL: ')
+            meta['img_ver'] = raw_input('Image Version: ')
+            #print "Identify the hardware version:"
+            #print hw.hw.selections('')
+            #meta['hw_ver'] = raw_input('HW ID Number: ')
+        else:
+            meta['name'] = ''
+            meta['description'] = ''
+            meta['url'] = ''
+            meta['img_ver'] = 0
+            #meta['hw_ver'] = 0
+        meta['compression'] = compress
         meta['format_ver'] = hw.LIM_VERSION
-        print "Identify the hardware version:"
-        print hw.hw.selections('')
-        meta['hw_ver'] = raw_input('HW ID Number: ')
         return meta
 
     def getDisk(self):
@@ -148,24 +157,24 @@ class BlockDevice(Container):
                               fs=parted_part._fileSystem.type, \
                               msdoslabel=support.readPartID(self.dev.path, parted_part.number), \
                               flags=self.getPartFlags(parted_part))
-            partlist.append(p)
+            lim_partlist.append(p)
         #get 'partition 0', the interstitial stuff between MBR and p1
-        if partlist[0].startSec > 1:
+        if lim_partlist[0].startSec > 1:
             p = limpartition.DiskPartition(number=0, \
                                    device=self.dev.path, \
                                    startSec=1, \
-                                   size=partlist[0].startSec-1, \
+                                   size=lim_partlist[0].startSec-1, \
                                    exchangeDir=self.exchangeDir, \
                                    parttype='artificial', \
                                    fs=None, \
                                    msdoslabel=0, \
                                    flags={}, \
                                    storage='block')
-            partlist.append(p)
-        self.partitions = partlist
-        return partlist
+            lim_partlist.append(p)
+        self.partitions = lim_partlist
+        return lim_partlist
 
-    def putPartition(self, exchangeDesc):
+    def putPartition(self, exchangeDesc, compress):
         number = exchangeDesc.number
         cfg = exchangeDesc.config
         loc = exchangeDesc.exchangeloc
@@ -180,8 +189,21 @@ class BlockDevice(Container):
                                          "mount" + str(number))
             os.mkdir(self.mountDir)
             support.mount(device=self.node + str(number), dest=self.mountDir)
-            support.tar(tarfile=loc, target='', options='xzf', \
-                        cwd=self.mountDir)
+
+            #Extract the exchange file to the new partition
+            efd = open(loc, 'r')
+            #tarp = support.tarExtract_Process(self.mountDir)
+            #subprocess.call(compress.getDecompressOpts(),
+            #                stdin=efd, stdout=tarp.stdin)
+            q = subprocess.Popen(compress.getDecompressOpts(), stdin=efd,
+                             stdout=subprocess.PIPE)
+            p = support.tarExtract_Process(self.mountDir, stdin=q.stdout)
+            p.wait()
+            q.wait()
+            efd.close()
+            #support.tar(tarfile=loc, target='', options='xzf', \
+            #            cwd=self.mountDir)
+
             support.umount(self.mountDir)
             support.writePartID(self.node, number, int(cfg['label']))
 
@@ -203,7 +225,7 @@ class Archive(Container):
     def putMeta(self, metainfo):
         self.addToConfig('meta', metainfo)
 
-    def getMeta(self):
+    def getMeta(self, compress, needmeta=True):
         try:
             meta = self.extractFromConfig('meta')
             #Test for presence of all required fields
@@ -213,7 +235,7 @@ class Archive(Container):
             m = meta['description']
             m = meta['img_ver']
             m = meta['format_ver']
-            m = meta['hw_ver']
+            #m = meta['hw_ver']
             return meta
         except KeyError as k:
             raise errors.BadArchive(self.ar, meta=str(k.args[0]))
@@ -230,7 +252,7 @@ class Archive(Container):
     def getMBR(self):
         return support.arGet(self.ar, 'MBR', self.exchangeDir)
 
-    def putPartition(self, exchangeDesc):
+    def putPartition(self, exchangeDesc, compress):
         number = exchangeDesc.number
         self.addToConfig('p' + str(number), exchangeDesc.config)
         self.addFile(exchangeDesc.exchangeloc)
