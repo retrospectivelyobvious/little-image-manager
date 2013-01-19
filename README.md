@@ -18,6 +18,10 @@ work with the microSD cards that often serve as the primary storage in embedded
 systems, but should work with anything that can present itself as a block
 device in a Linux system.
 
+## Contact
+More info on LIM is at <http://retrospectivelyobvious.org/lim>  
+You can contact the author at <bob.sherbert@gmail.com>  
+
 ## Installation
 To get started with LIM, first grab the source:
 
